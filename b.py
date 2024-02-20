@@ -76,9 +76,10 @@ for column, column_name in enumerate(X_test.columns):
     
     print(f"Evaluation for {column_name}: RMSE = {rmse}, MAE = {mae}, R2 = {r2}")
 with open('evaluation_results_yesterday.txt', 'w') as file:
-    for column, column_name in enumerate(X_test.columns):
+    for column, column_name in enumerate(X_test.columns[:8]):
         # Create a copy of X_test with the current column masked
-        X_test_masked = mask_values(X_test, column_name)
+        X_test_masked = X_test.copy()
+        X_test_masked.iloc[:,column]=np.nan
         
         # Impute missing values
         X_test_imputed =  pd.DataFrame(imputer.transform(X_test_masked).cpu().numpy())
