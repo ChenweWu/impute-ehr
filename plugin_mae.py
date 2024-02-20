@@ -317,7 +317,7 @@ if __name__ == '__main__':
     imputers = Imputers()
     imputers.add(MAEPlugin.name(), MAEPlugin)
     imputer = imputers.get('mae', args)
-
+    print(X.shape,y.shape)
     # imputer.fit_transform(X)
     results = {}
     # for dataset in datasets:    

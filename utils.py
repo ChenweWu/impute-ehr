@@ -165,7 +165,7 @@ def get_dataset(dataset : str, path : str):
         # only for testing
         from sklearn.datasets import load_iris
         X, y = load_iris(as_frame=True, return_X_y=True)
-    
+        print("loaded iris dataset")
 
     return X, y
 

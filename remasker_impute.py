@@ -21,9 +21,9 @@ from hyperimpute.plugins.imputers import ImputerPlugin
 from sklearn.datasets import load_iris
 from hyperimpute.utils.benchmarks import compare_models
 from hyperimpute.plugins.imputers import Imputers
-
+from tqdm import tqdm
 eps = 1e-8
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 class ReMasker:
 
@@ -37,7 +37,7 @@ class ReMasker:
         self.weight_decay = args.weight_decay
         self.lr = args.lr
         self.blr = args.blr
-        self.warmup_epochs = args.warmup_epochs
+        self.warmup_epochs = 20
         self.model = None
         self.norm_parameters = None
 
@@ -46,29 +46,43 @@ class ReMasker:
         self.decoder_depth = args.decoder_depth
         self.num_heads = args.num_heads
         self.mlp_ratio = args.mlp_ratio
-        self.max_epochs = args.max_epochs
+        self.max_epochs = 200
         self.mask_ratio = args.mask_ratio
         self.encode_func = args.encode_func
 
     def fit(self, X_raw: pd.DataFrame):
-        X = X_raw.clone()
+        X = X_raw.copy()
 
         # Parameters
         no = len(X)
-        dim = len(X[0, :])
+        dim = X.shape[1]
 
-        X = X.cpu()
+        # X = X.cpu()
 
         min_val = np.zeros(dim)
         max_val = np.zeros(dim)
 
+# import numpy as np
+# import pandas as pd
+
+# Assuming X is a DataFrame and dim is the number of columns
+        dim = X.shape[1]
+        min_val = np.zeros(dim)
+        max_val = np.zeros(dim)
+        eps = 1e-7
+
         for i in range(dim):
-            min_val[i] = np.nanmin(X[:, i])
-            max_val[i] = np.nanmax(X[:, i])
-            X[:, i] = (X[:, i] - min_val[i]) / (max_val[i] - min_val[i] + eps)
+            # Use .iloc to access the DataFrame by integer-location
+            min_val[i] = np.nanmin(X.iloc[:, i])
+            max_val[i] = np.nanmax(X.iloc[:, i])
+            # Perform the operation and update the column
+            X.iloc[:, i] = (X.iloc[:, i] - min_val[i]) / (max_val[i] - min_val[i] + eps)
 
         self.norm_parameters = {"min": min_val, "max": max_val}
+        np_array = X.to_numpy()
 
+        # Convert NumPy array to PyTorch tensor
+        X = torch.tensor(np_array, dtype=torch.float32)
         # Set missing
         M = 1 - (1 * (np.isnan(X)))
         M = M.float().to(device)
@@ -120,12 +134,12 @@ class ReMasker:
         self.model.train()
 
         for epoch in range(self.max_epochs):
-
+            print(epoch)
             optimizer.zero_grad()
             total_loss = 0
 
             iter = 0
-            for iter, (samples, masks) in enumerate(dataloader):
+            for iter, (samples, masks) in tqdm(enumerate(dataloader), total = len(dataloader)):
 
                 # we use a per iteration (instead of per epoch) lr scheduler
                 if iter % self.accum_iter == 0:
@@ -165,7 +179,8 @@ class ReMasker:
         return self
 
     def transform(self, X_raw: torch.Tensor):
-
+        if not torch.is_tensor(X_raw):
+            X_raw = torch.tensor(X_raw.values) 
         X = X_raw.clone()
 
         min_val = self.norm_parameters["min"]
@@ -182,8 +197,8 @@ class ReMasker:
         M = 1 - (1 * (np.isnan(X)))
         X = np.nan_to_num(X)
 
-        X = torch.from_numpy(X).to(device)
-        M = M.to(device)
+        X = torch.from_numpy(X).to(device).float()
+        M = M.to(device).float()
 
         self.model.eval()
 
