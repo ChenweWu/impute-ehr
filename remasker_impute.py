@@ -47,7 +47,7 @@ class ReMasker:
         self.num_heads = args.num_heads
         self.mlp_ratio = args.mlp_ratio
         self.max_epochs = 200
-        self.mask_ratio = args.mask_ratio
+        self.mask_ratio = 0.5
         self.encode_func = args.encode_func
 
     def fit(self, X_raw: pd.DataFrame):
