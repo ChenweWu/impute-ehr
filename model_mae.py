@@ -65,6 +65,7 @@ class MaskedAutoencoder(nn.Module):
     def initialize_weights(self):
         
         # initialization
+        
         # initialize (and freeze) pos_embed by sin-cos embedding
         pos_embed = get_1d_sincos_pos_embed(self.pos_embed.shape[-1], self.mask_embed.rec_len, cls_token=True)
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))

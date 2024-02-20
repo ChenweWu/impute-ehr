@@ -9,6 +9,7 @@ def get_args_parser():
     parser.add_argument('--accum_iter', default=1, type=int,  help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
     parser.add_argument('--norm_field_loss', action='store_true', help='Use (per-patch) normalized field as targets for computing loss')
 
+
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05, help='weight decay (default: 0.05)')
     parser.add_argument('--lr', type=float, default=None, metavar='LR', help='learning rate (absolute lr)')

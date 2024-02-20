@@ -17,6 +17,7 @@ X, y = get_dataset(args.dataset, args.path)
 if len(np.unique(y)) > 20:
     org_auroc_score = 0
 else:
+    
     clf = LogisticRegression(solver="liblinear", random_state=0).fit(np.asarray(X), np.asarray(y))
     if len(np.unique(np.asarray(y))) > 2:
         org_auroc_score = roc_auc_score(np.asarray(y), clf.predict_proba(np.asarray(X)), multi_class='ovr')

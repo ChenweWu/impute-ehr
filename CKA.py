@@ -12,6 +12,7 @@ def centering(K):
     # return np.dot(H, K)  # KH
 
 
+
 def rbf(X, sigma=None):
     GX = np.dot(X, X.T)
     KX = np.diag(GX) - GX + (np.diag(GX) - GX).T

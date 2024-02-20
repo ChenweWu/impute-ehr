@@ -27,6 +27,7 @@ scaler = MinMaxScaler()
 X = scaler.fit_transform(X)
 
 # for i in range(dim):
+
 #     min_val[i] = np.nanmin(X[:, i])
 #     max_val[i] = np.nanmax(X[:, i])
 #     X[:, i] = (X[:, i] - min_val[i]) / (max_val[i] -  min_val[i] + 1e-8)      
