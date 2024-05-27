@@ -10,7 +10,7 @@ from torch import nn
 from functools import partial
 import time, os, json
 from utils import NativeScaler, MAEDataset, adjust_learning_rate, get_dataset
-import model_mae
+import MAE
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 import sys
 import timm.optim.optim_factory as optim_factory
@@ -70,7 +70,7 @@ class ReMaskerStep:
             
         if not(model):
             ### Model ###
-            self.model = model_mae.MaskedAutoencoder(
+            self.model = MAE.MaskedAutoencoder(
                 rec_len=self.dim,
                 embed_dim=self.embed_dim,
                 depth=self.depth,
