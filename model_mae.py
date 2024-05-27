@@ -65,7 +65,7 @@ class MaskedAutoencoder(nn.Module):
     def initialize_weights(self):
         
         # initialization
-        
+
         # initialize (and freeze) pos_embed by sin-cos embedding
         pos_embed = get_1d_sincos_pos_embed(self.pos_embed.shape[-1], self.mask_embed.rec_len, cls_token=True)
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
@@ -96,21 +96,28 @@ class MaskedAutoencoder(nn.Module):
             nn.init.constant_(m.weight, 1.0)
 
 
-    def random_masking(self, x, m, mask_ratio):
+    def random_masking(self, x, m, mask_ratio, exclude_columns=None):
         """
         Perform per-sample random masking by per-sample shuffling.
         Per-sample shuffling is done by argsort random noise.
         x: [N, L, D], sequence
         """
         N, L, D = x.shape  # batch, length, dim
+        
         if self.training:
+            effective_length = L - len(exclude_columns)
             len_keep = int(L * (1 - mask_ratio))
         else:
             len_keep = int(torch.min(torch.sum(m, dim=1)))
 
         noise = torch.rand(N, L, device=x.device)  # noise in [0, 1]
         noise[m < eps] = 1
-
+        
+        # Exclude specific columns from masking
+        if exclude_columns is not None:
+            noise[:, exclude_columns] = 0
+    
+    
         # sort noise for each sample
         ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove
         ids_restore = torch.argsort(ids_shuffle, dim=1)
@@ -131,9 +138,9 @@ class MaskedAutoencoder(nn.Module):
             mask[m < eps] = 0
 
         return x_masked, mask, nask, ids_restore
+    
 
-
-    def forward_encoder(self, x, m, mask_ratio=0.5):
+    def forward_encoder(self, x, m, mask_ratio=0.5, exclude_columns=None):
         
         # embed patches
         x = self.mask_embed(x)
@@ -142,7 +149,7 @@ class MaskedAutoencoder(nn.Module):
         x = x + self.pos_embed[:, 1:, :]    
 
         # masking: length -> length * mask_ratio
-        x, mask, nask, ids_restore = self.random_masking(x, m, mask_ratio)
+        x, mask, nask, ids_restore = self.random_masking(x, m, mask_ratio, exclude_columns)
 
         # append cls token
         cls_token = self.cls_token + self.pos_embed[:, :1, :]
@@ -197,22 +204,23 @@ class MaskedAutoencoder(nn.Module):
         """
         # target = self.patchify(data)
         target = data.squeeze(dim=1)
+        N, L = target.shape
+        
         if self.norm_field_loss:
             mean = target.mean(dim=-1, keepdim=True)
             var = target.var(dim=-1, keepdim=True)
             target = (target - mean) / (var + eps)**.5
         
-        
-        loss = (pred.squeeze(dim=2) - target) ** 2
+        loss = (pred.squeeze(dim=2) - target) ** 2 
         loss = (loss * mask).sum() / mask.sum()  + (loss * nask).sum() / nask.sum()
-        # mean loss on removed patches
         
+        # mean loss on removed patches
         return loss
 
-
-    def forward(self, data, miss_idx, mask_ratio=0.5):
+    
+    def forward(self, data, miss_idx, mask_ratio=0.5, exclude_columns=None):
         
-        latent, mask, nask, ids_restore = self.forward_encoder(data, miss_idx, mask_ratio)
+        latent, mask, nask, ids_restore = self.forward_encoder(data, miss_idx, mask_ratio, exclude_columns)
         pred = self.forward_decoder(latent, ids_restore) 
         loss = self.forward_loss(data, pred, mask, nask)
         return loss, pred, mask, nask
@@ -241,6 +249,46 @@ def mae_large(**kwargs):
         mlp_ratio=4., norm_layer=partial(nn.LayerNorm, eps=eps), **kwargs)
     return model
 
+### new loss ( clinical inspired loss)
+import torch.nn as nn
+
+
+## version 1 : downscale the importance of the within-range samples
+# class CustomLoss(nn.Module):
+#     def __init__(self, weight_hyperparameter_lambda):
+#         super(CustomLoss, self).__init__()
+#         self.lambda = xxx
+#     def forward(self, inputs, targets, normal_ranges = [lab test normal range values here]):
+#         targets = shape batchsize, number of columns
+#         inputs = shape batchsize, number of columns
+#         weighted version of the loss: 
+#         if else based on the normal ranges:
+#         within the range-> lambda* loss
+#         if its beyond the range -> keep the loss
+#         loss = ###
+#         return ###
+
+#version 2 : (for today+yesterday predictions only) we need to take in consideration of the direction of change
+# class CustomLoss(nn.Module):
+#     def __init__(self, weight_hyperparameter_lambda):
+#         super(CustomLoss, self).__init__()
+#         self.lambda = xxx
+#     def forward(self, inputs, targets, normal_ranges = [lab test normal range values here]):
+#         targets = shape batchsize, number of columns
+#         inputs = shape batchsize, number of columns
+#         weighted version of the loss: 
+#         if else based on the normal ranges:
+#         within the range-> lambda* loss
+#         if its beyond the range -> keep the loss
+#         loss = ###
+        
+#         apart from the reconstruction loss, we calculate a classification loss (could be cross entropy of direction of change)
+#         1. add an additional label in the dataloader, (additional columns of 0 and 1s for each lab test values indicating whether it increase or decreased compared to the previous day?
+#         2. do everything in the loss module                                            
+#         return ###
+
+    
+    
 
 if __name__ == '__main__':
 
